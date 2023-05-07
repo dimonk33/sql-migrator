@@ -22,12 +22,12 @@ jobs:
 
       - name: make lint
         run: make lint
-        working-directory: hw12_13_14_15_calendar
+        working-directory: .
 
       - name: make build
         run: make build
-        working-directory: hw12_13_14_15_calendar
+        working-directory: .
 
       - name: make test
         run: make test
-        working-directory: hw12_13_14_15_calendar
+        working-directory: .
