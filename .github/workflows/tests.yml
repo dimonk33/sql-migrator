@@ -1,0 +1,33 @@
+name: Otus project tests
+
+on:
+  push:
+    branches:
+      - master
+
+env:
+  GO111MODULE: "on"
+
+jobs:
+  tests_by_makefile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ^1.20
+
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: make lint
+        run: make lint
+        working-directory: hw12_13_14_15_calendar
+
+      - name: make build
+        run: make build
+        working-directory: hw12_13_14_15_calendar
+
+      - name: make test
+        run: make test
+        working-directory: hw12_13_14_15_calendar

@@ -1,0 +1,41 @@
+version: "3.9"
+
+networks:
+  migrator-network:
+    driver: bridge
+
+services:
+  migrator:
+    container_name: sql-migrator
+    build:
+      context: ../
+      dockerfile: build/migrator/Dockerfile
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=migrator
+      - POSTGRES_PASSWORD=migrator
+      - POSTGRES_DB=migrator
+      - POSTGRES_SSL=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - migrator-network
+
+  db:
+    image: postgres:latest
+    container_name: migrator-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=migrator
+      - POSTGRES_PASSWORD=migrator
+      - POSTGRES_DB=migrator
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: pg_isready -U migrator -d migrator
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - migrator-network
