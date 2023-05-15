@@ -25,7 +25,7 @@ func NewFileFinder(ft string) (*Finder, error) {
 	}, nil
 }
 
-func (ff *Finder) scanDir(ctx context.Context, path string) ([]string, error) {
+func (ff *Finder) ScanDir(ctx context.Context, path string) ([]string, error) {
 	var list []string
 
 	entries, err := os.ReadDir(path)
@@ -52,8 +52,5 @@ func (ff *Finder) validateEntry(e os.DirEntry) bool {
 		return false
 	}
 	ext := filepath.Ext(e.Name())
-	if ext != ff.fileType {
-		return false
-	}
-	return true
+	return ext == ff.fileType
 }

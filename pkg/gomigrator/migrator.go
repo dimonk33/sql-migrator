@@ -13,11 +13,10 @@ import (
 )
 
 type Migrator struct {
-	logger   Logger
-	dirPath  string
-	fileType string
-	db       DB
-	finder   *file.Finder
+	logger  Logger
+	dirPath string
+	db      DB
+	finder  *file.Finder
 }
 
 type Logger interface {
@@ -93,6 +92,20 @@ func (m *Migrator) Create(name string, mtype string) error {
 }
 
 func (m *Migrator) Up(mtype string) error {
+	ff, err := file.NewFileFinder(mtype)
+	if err != nil {
+		return fmt.Errorf("ошибка поиска миграций: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var flist []string
+	flist, err = ff.ScanDir(ctx, m.dirPath)
+	if err != nil {
+		return fmt.Errorf("ошибка поиска миграций: %w", err)
+	}
+	m.logger.Info(strings.Join(flist, "\n"))
+
 	return nil
 }
 
