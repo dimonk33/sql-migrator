@@ -1,3 +1,6 @@
+/*
+Copyright © 2023 NAME HERE <EMAIL ADDRESS>
+*/
 package cmd
 
 import (
@@ -6,9 +9,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// upCmd represents the up command
-var upCmd = &cobra.Command{
-	Use:   "up",
+// downCmd represents the вщdown command
+var downCmd = &cobra.Command{
+	Use:   "down",
 	Short: "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -17,20 +20,20 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("up called")
+		fmt.Println("down called")
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(upCmd)
+	rootCmd.AddCommand(downCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// upCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// downCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// upCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// downCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

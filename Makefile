@@ -5,10 +5,10 @@ DOCKER_COMPOSE_PROD="./deployments/docker-compose.yaml"
 DOCKER_COMPOSE_TEST="./deployments/docker-compose.test.yaml"
 
 build:
-	go build -v -o $(BIN_FILE) ./cmd/migrator
+	go build -v -o $(BIN_FILE) ./cmd/gomigrator
 
 run: build
-	$(BIN_FILE) -config ./configs/config.toml &&
+	$(BIN_FILE)
 
 test:
 	go test -race ./internal/...

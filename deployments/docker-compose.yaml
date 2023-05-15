@@ -11,11 +11,11 @@ services:
       context: ../
       dockerfile: build/migrator/Dockerfile
     environment:
-      - POSTGRES_HOST=db
-      - POSTGRES_USER=migrator
-      - POSTGRES_PASSWORD=migrator
-      - POSTGRES_DB=migrator
-      - POSTGRES_SSL=disable
+      - DB_HOST=db:5432
+      - DB_USER=migrator
+      - DB_PASSWORD=migrator
+      - DB_NAME=migrator
+      - DB_SSL=disable
     depends_on:
       db:
         condition: service_healthy
@@ -26,12 +26,12 @@ services:
     image: postgres:latest
     container_name: migrator-postgres
     restart: always
+    ports:
+      - '5432:5432'
     environment:
       - POSTGRES_USER=migrator
       - POSTGRES_PASSWORD=migrator
       - POSTGRES_DB=migrator
-    ports:
-      - '5432:5432'
     healthcheck:
       test: pg_isready -U migrator -d migrator
       interval: 10s
