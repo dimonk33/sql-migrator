@@ -39,5 +39,5 @@ var createCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(createCmd)
-	createCmd.Flags().StringVar(&migrateType, "migrateType", defaultMigrateType, "Тип миграции (sql/go)")
+	createCmd.Flags().StringVar(&migrateType, "migrate-type", defaultMigrateType, "Тип миграции (sql/go)")
 }

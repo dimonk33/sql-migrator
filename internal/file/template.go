@@ -73,9 +73,12 @@ func (t *Template) Create(name string, tType string) error {
 	if err != nil {
 		return fmt.Errorf("ошибка создания файла: %w", err)
 	}
+
 	defer func() {
 		err = t.f.Close()
-		t.logger.Warning("ошибка закрытия файла: " + err.Error())
+		if err != nil {
+			t.logger.Warning("ошибка закрытия файла: " + err.Error())
+		}
 	}()
 
 	tv := tmplVars{
@@ -84,9 +87,16 @@ func (t *Template) Create(name string, tType string) error {
 
 	switch tType {
 	case SqlFile:
-		return fmt.Errorf("ошибка генерации шаблона: %w", sqlMigrateTemplate.Execute(t.f, tv))
+		err = sqlMigrateTemplate.Execute(t.f, tv)
 	case GoFile:
-		return fmt.Errorf("ошибка генерации шаблона: %w", goMigrateTemplate.Execute(t.f, tv))
+		err = goMigrateTemplate.Execute(t.f, tv)
+	default:
+		err = errors.New("неподдерживаемый тип миграций")
 	}
-	return errors.New("неподдерживаемый тип миграций")
+
+	if err != nil {
+		return fmt.Errorf("ошибка генерации шаблона: %w", err)
+	}
+
+	return nil
 }
