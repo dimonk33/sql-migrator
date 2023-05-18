@@ -1,4 +1,4 @@
-package file
+package migfile
 
 import (
 	"errors"
@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	SQLUpPartID   = "-- ===gm Up==="
+	SQLDownPartID = "-- ===gm Down==="
+)
+
 type Template struct {
 	tmplDirPath string
 	f           *os.File
@@ -17,10 +22,10 @@ type Template struct {
 }
 
 type Logger interface {
-	Info(msg string)
-	Error(msg string)
-	Warning(msg string)
-	Debug(msg string)
+	Info(v ...any)
+	Error(v ...any)
+	Warning(v ...any)
+	Debug(v ...any)
 }
 
 type tmplVars struct {
@@ -28,10 +33,10 @@ type tmplVars struct {
 }
 
 var sqlMigrateTemplate = template.Must(template.New("gm.sql-migration").Parse(
-	`-- gm Up
+	SQLUpPartID + `
 CREATE 'up SQL query';
 
--- gm Down
+` + SQLDownPartID + `
 DROP 'down SQL query';
 `))
 
@@ -86,7 +91,7 @@ func (t *Template) Create(name string, tType string) error {
 	}
 
 	switch tType {
-	case SqlFile:
+	case SQLFile:
 		err = sqlMigrateTemplate.Execute(t.f, tv)
 	case GoFile:
 		err = goMigrateTemplate.Execute(t.f, tv)

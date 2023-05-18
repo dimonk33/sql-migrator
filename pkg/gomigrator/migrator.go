@@ -5,38 +5,44 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	db2 "github.com/dimonk33/sql-migrator/internal/db"
-	"github.com/dimonk33/sql-migrator/internal/file"
+	migdb "github.com/dimonk33/sql-migrator/internal/db"
+	"github.com/dimonk33/sql-migrator/internal/executer"
+	migfile "github.com/dimonk33/sql-migrator/internal/file"
 )
 
 type Migrator struct {
 	logger  Logger
 	dirPath string
 	db      DB
-	finder  *file.Finder
+	finder  *migfile.Finder
 }
 
 type Logger interface {
-	Info(msg string)
-	Error(msg string)
-	Warning(msg string)
-	Debug(msg string)
+	Info(v ...any)
+	Error(v ...any)
+	Warning(v ...any)
+	Debug(v ...any)
 }
 
 type DB interface {
-	Create(ctx context.Context, name string) error
-	Apply(ctx context.Context, sql string) error
-	SetApplied(ctx context.Context, name string) error
-	Delete(ctx context.Context, name string) error
+	executer.DB
 	Find(ctx context.Context, name string) (int, error)
 	FindLast(ctx context.Context) (string, error)
-	FindAllApplied(ctx context.Context) ([][2]string, error)
+	FindAllApplied(ctx context.Context) ([]migdb.MigrateInfo, error)
 }
 
-func New(l Logger, dir string, dbConn *db2.ConnParam) (*Migrator, error) {
+type MigrateExec interface {
+	UpExec(ctx context.Context, path string) error
+	DownExec(ctx context.Context, path string) error
+}
+
+var ErrNoMigrations = errors.New("отсутствуют миграции для применения")
+
+func New(l Logger, dir string, dbConn *migdb.ConnParam) (*Migrator, error) {
 	m := &Migrator{
 		logger:  l,
 		dirPath: dir,
@@ -44,13 +50,13 @@ func New(l Logger, dir string, dbConn *db2.ConnParam) (*Migrator, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	db, err := db2.NewPgMigrator(ctx, dbConn)
+	db, err := migdb.NewPgMigrator(ctx, dbConn)
 	if err != nil {
 		return nil, err
 	}
 	m.db = db
 
-	m.finder, err = file.NewFileFinder(file.SqlFile)
+	m.finder, err = migfile.NewFileFinder()
 	if err != nil {
 		return nil, err
 	}
@@ -66,24 +72,24 @@ func (m *Migrator) Status() error {
 		return err
 	}
 	for _, item := range list {
-		fmt.Printf("%s - %s\n", item[0], item[1])
+		fmt.Printf("%s - %s\n", item.Name, item.UpdatedAt)
 	}
 	return nil
 }
 
-func (m *Migrator) Create(name string, mtype string) error {
-	mtype = strings.ToLower(strings.Trim(mtype, " \t\r\n"))
-	if mtype != file.SqlFile && mtype != file.GoFile {
-		return errors.New("неверный тип миграции: " + mtype)
+func (m *Migrator) Create(migrateName string, migrateType string) error {
+	migrateType = strings.ToLower(strings.Trim(migrateType, " \t\r\n"))
+	if migrateType != migfile.SQLFile && migrateType != migfile.GoFile {
+		return errors.New("неверный тип миграции: " + migrateType)
 	}
 
-	err := os.MkdirAll(m.dirPath, 0750)
+	err := os.MkdirAll(m.dirPath, 0o750)
 	if err != nil {
 		return fmt.Errorf("ошибка создания каталога для миграций: %w", err)
 	}
 
-	t := file.NewTemplate(m.logger, m.dirPath)
-	err = t.Create(name, mtype)
+	t := migfile.NewTemplate(m.logger, m.dirPath)
+	err = t.Create(migrateName, migrateType)
 	if err != nil {
 		return fmt.Errorf("ошибка создания миграции: %w", err)
 	}
@@ -91,25 +97,57 @@ func (m *Migrator) Create(name string, mtype string) error {
 	return nil
 }
 
-func (m *Migrator) Up(mtype string) error {
-	ff, err := file.NewFileFinder(mtype)
-	if err != nil {
-		return fmt.Errorf("ошибка поиска миграций: %w", err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (m *Migrator) Up() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	var flist []string
-	flist, err = ff.ScanDir(ctx, m.dirPath)
+	flist, err := m.finder.ScanDir(ctx, m.dirPath)
 	if err != nil {
-		return fmt.Errorf("ошибка поиска миграций: %w", err)
+		return fmt.Errorf("ошибка поиска миграций в каталоге: %w", err)
 	}
-	m.logger.Info(strings.Join(flist, "\n"))
+	m.logger.Info("Cписок миграций:\n", flist)
+
+	appliedMigrations, err := m.db.FindAllApplied(ctx)
+	if err != nil {
+		return fmt.Errorf("ошибка получения миграций из базы: %w", err)
+	}
+
+	for _, am := range appliedMigrations {
+		_, ok := flist[am.Name]
+		if ok {
+			delete(flist, am.Name)
+		}
+	}
+
+	m.logger.Info("Cписок миграций для применения:\n", flist)
+
+	if len(flist) == 0 {
+		return ErrNoMigrations
+	}
+
+	var mExecuter MigrateExec
+	for _, f := range flist {
+		m.logger.Info("Применение миграции", f)
+		ext := strings.Trim(filepath.Ext(f), ".")
+		switch ext {
+		case migfile.SQLFile:
+			mExecuter = executer.NewSqlMigrate(m.db)
+		case migfile.GoFile:
+			mExecuter = executer.NewGoMigrate(m.db)
+		}
+
+		err = mExecuter.UpExec(ctx, f)
+		if err != nil {
+			m.logger.Error("Миграция", f, "ошибка:", err)
+			return fmt.Errorf("ошибка применения миграции %s: %w", f, err)
+		}
+		m.logger.Info("Миграция", f, "применена")
+	}
 
 	return nil
 }
 
-func (m *Migrator) Down(count int) error {
+func (m *Migrator) Down() error {
 	return nil
 }
 

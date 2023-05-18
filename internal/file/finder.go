@@ -1,32 +1,25 @@
-package file
+package migfile
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
-	SqlFile = "sql"
+	SQLFile = "sql"
 	GoFile  = "go"
 )
 
-type Finder struct {
-	fileType string
+type Finder struct{}
+
+func NewFileFinder() (*Finder, error) {
+	return &Finder{}, nil
 }
 
-func NewFileFinder(ft string) (*Finder, error) {
-	if ft != SqlFile && ft != GoFile {
-		return nil, errors.New("неподдерживаемый тип файлов")
-	}
-	return &Finder{
-		fileType: ft,
-	}, nil
-}
-
-func (ff *Finder) ScanDir(ctx context.Context, path string) ([]string, error) {
-	var list []string
+func (ff *Finder) ScanDir(ctx context.Context, path string) (map[string]string, error) {
+	list := make(map[string]string)
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -39,7 +32,7 @@ func (ff *Finder) ScanDir(ctx context.Context, path string) ([]string, error) {
 			return nil, ctx.Err()
 		default:
 			if ff.validateEntry(e) {
-				list = append(list, path+"/"+e.Name())
+				list[e.Name()] = filepath.Join(path, e.Name())
 			}
 		}
 	}
@@ -51,6 +44,6 @@ func (ff *Finder) validateEntry(e os.DirEntry) bool {
 	if e.IsDir() {
 		return false
 	}
-	ext := filepath.Ext(e.Name())
-	return ext == ff.fileType
+	ext := strings.ReplaceAll(filepath.Ext(e.Name()), ".", "")
+	return ext == SQLFile || ext == GoFile
 }

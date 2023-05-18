@@ -29,24 +29,24 @@ func New(level string) *Logger {
 	}
 }
 
-func (l Logger) Info(msg string) {
+func (l Logger) Info(v ...any) {
 	if l.level == LevelInfo || l.level == LevelDebug {
-		l.infoLog.Println(msg)
+		l.infoLog.Println(v...)
 	}
 }
 
-func (l Logger) Error(msg string) {
-	l.errorLog.Println(msg)
+func (l Logger) Error(v ...any) {
+	l.errorLog.Println(v...)
 }
 
-func (l Logger) Warning(msg string) {
+func (l Logger) Warning(v ...any) {
 	if l.level != LevelError {
-		l.warningLog.Println(msg)
+		l.warningLog.Println(v...)
 	}
 }
 
-func (l Logger) Debug(msg string) {
+func (l Logger) Debug(v ...any) {
 	if l.level == LevelDebug {
-		l.debugLog.Println(msg)
+		l.debugLog.Println(v...)
 	}
 }
