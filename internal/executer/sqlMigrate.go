@@ -55,21 +55,36 @@ func (sm *SQLMigrate) UpExec(ctx context.Context, path string) error {
 	name := filepath.Base(path)
 	err = sm.db.ApplyTx(ctx, name, sqls)
 	if err != nil {
-		return fmt.Errorf("ошибка применения миграций из файла %s: %w", path, err)
+		return fmt.Errorf("ошибка применения миграции %s: %w", path, err)
 	}
 
 	return nil
 }
 
-//nolint:all
 func (sm *SQLMigrate) DownExec(ctx context.Context, path string) error {
+	text, err := sm.parseFile(path, DownDirection)
+	if err != nil {
+		return fmt.Errorf("ошибка парсинга файла: %w", err)
+	}
+
+	sqlList := sm.extractSQLRequest(text)
+	if len(sqlList) == 0 {
+		return ErrNoData
+	}
+
+	name := filepath.Base(path)
+	err = sm.db.RevertTx(ctx, name, sqlList)
+	if err != nil {
+		return fmt.Errorf("ошибка отката миграции %s: %w", path, err)
+	}
+
 	return nil
 }
 
 func (sm *SQLMigrate) parseFile(path string, dir int) (string, error) {
 	fileContent, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("open file error: %w", err)
+		return "", fmt.Errorf("ошибка открытия файла: %w", err)
 	}
 
 	upStartIndex := strings.Index(string(fileContent), migfile.SQLUpPartID) + len(migfile.SQLUpPartID)
@@ -92,10 +107,13 @@ func (sm *SQLMigrate) parseFile(path string, dir int) (string, error) {
 }
 
 func (sm *SQLMigrate) extractSQLRequest(text string) []string {
-	t1 := strings.Trim(strings.ReplaceAll(strings.ReplaceAll(
-		text, "\r", "",
-	), "\n", ""),
-		" \t\r\n")
-	sql := strings.Split(t1, ";")
-	return sql
+	ts := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(text, "\r", ""), "\n", ""))
+	sql := strings.Split(ts, ";")
+	out := make([]string, 0)
+	for _, s := range sql {
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }

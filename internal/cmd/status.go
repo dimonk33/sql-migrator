@@ -11,19 +11,20 @@ import (
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Статус применения миграций",
-	Args:  cobra.MinimumNArgs(1),
+	Args:  cobra.MinimumNArgs(0),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Parent().PersistentPreRunE(cmd.Parent(), args)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		const errStatusPrefix = "статус: "
 		m, err := gomigrator.New(logg, migrateDir, &dbParam)
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrCreatePrefix, err)
+			return fmt.Errorf("%s%w", errStatusPrefix, err)
 		}
 
-		err = m.Create(args[0], migrateType)
+		err = m.Status()
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrCreatePrefix, err)
+			return fmt.Errorf("%s%w", errStatusPrefix, err)
 		}
 
 		return nil

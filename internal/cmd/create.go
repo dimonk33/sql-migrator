@@ -7,11 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const ErrCreatePrefix = "создание миграции: "
-
 var migrateType string
 
-// createCmd команда для создания миграций
+// createCmd команда для создания миграций.
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Создание шаблона для написания миграции",
@@ -20,14 +18,16 @@ var createCmd = &cobra.Command{
 		return cmd.Parent().PersistentPreRunE(cmd.Parent(), args)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		const errCreatePrefix = "создание миграции: "
+
 		m, err := gomigrator.New(logg, migrateDir, &dbParam)
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrCreatePrefix, err)
+			return fmt.Errorf("%s%w", errCreatePrefix, err)
 		}
 
 		err = m.Create(args[0], migrateType)
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrCreatePrefix, err)
+			return fmt.Errorf("%s%w", errCreatePrefix, err)
 		}
 
 		return nil

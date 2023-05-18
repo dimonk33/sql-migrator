@@ -7,8 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const ErrRedoPrefix = "повтор миграций: "
-
 // redoCmd повтор последней миграции.
 var redoCmd = &cobra.Command{
 	Use:   "redo",
@@ -18,14 +16,16 @@ var redoCmd = &cobra.Command{
 		return cmd.Parent().PersistentPreRunE(cmd.Parent(), args)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		const errRedoPrefix = "повтор миграций: "
+
 		m, err := gomigrator.New(logg, migrateDir, &dbParam)
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrRedoPrefix, err)
+			return fmt.Errorf("%s%w", errRedoPrefix, err)
 		}
 
 		err = m.Redo()
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrRedoPrefix, err)
+			return fmt.Errorf("%s%w", errRedoPrefix, err)
 		}
 
 		return nil

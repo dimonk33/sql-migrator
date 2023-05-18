@@ -50,7 +50,7 @@ func New(l Logger, dir string, dbConn *migdb.ConnParam) (*Migrator, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	db, err := migdb.NewPgMigrator(ctx, dbConn)
+	db, err := migdb.NewPgMigrator(ctx, dbConn, l)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (m *Migrator) Status() error {
 }
 
 func (m *Migrator) Create(migrateName string, migrateType string) error {
-	migrateType = strings.ToLower(strings.Trim(migrateType, " \t\r\n"))
+	migrateType = strings.ToLower(strings.TrimSpace(migrateType))
 	if migrateType != migfile.SQLFile && migrateType != migfile.GoFile {
 		return errors.New("неверный тип миграции: " + migrateType)
 	}
@@ -129,6 +129,7 @@ func (m *Migrator) Up() error {
 	for _, f := range flist {
 		m.logger.Info("Применение миграции", f)
 		ext := strings.Trim(filepath.Ext(f), ".")
+
 		switch ext {
 		case migfile.SQLFile:
 			mExecuter = executer.NewSQLMigrate(m.db)
@@ -141,6 +142,7 @@ func (m *Migrator) Up() error {
 			m.logger.Error("Миграция", f, "ошибка:", err)
 			return fmt.Errorf("ошибка применения миграции %s: %w", f, err)
 		}
+
 		m.logger.Info("Миграция", f, "применена")
 	}
 
@@ -148,6 +150,45 @@ func (m *Migrator) Up() error {
 }
 
 func (m *Migrator) Down() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute /*Second*/)
+	defer cancel()
+
+	flist, err := m.finder.ScanDir(ctx, m.dirPath)
+	if err != nil {
+		return fmt.Errorf("ошибка поиска миграций в каталоге: %w", err)
+	}
+	m.logger.Info("Cписок миграций:\n", flist)
+
+	lastMigrationName, err := m.db.FindLast(ctx)
+	if err != nil {
+		return fmt.Errorf("ошибка получения последней миграции из базы: %w", err)
+	}
+
+	_, ok := flist[lastMigrationName]
+	if !ok {
+		return fmt.Errorf("миграция %s отсутствует на диске", lastMigrationName)
+	}
+
+	var mExecuter MigrateExec
+
+	m.logger.Info("Откат миграции", lastMigrationName)
+	ext := strings.Trim(filepath.Ext(lastMigrationName), ".")
+
+	switch ext {
+	case migfile.SQLFile:
+		mExecuter = executer.NewSQLMigrate(m.db)
+	case migfile.GoFile:
+		mExecuter = executer.NewGoMigrate(m.db)
+	}
+
+	err = mExecuter.DownExec(ctx, flist[lastMigrationName])
+	if err != nil {
+		m.logger.Error("Миграция", lastMigrationName, "ошибка:", err)
+		return fmt.Errorf("ошибка отмены миграции %s: %w", lastMigrationName, err)
+	}
+
+	m.logger.Info("Миграция", lastMigrationName, "отменена")
+
 	return nil
 }
 

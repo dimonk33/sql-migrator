@@ -7,8 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const ErrDownPrefix = "откат миграции: "
-
 // downCmd команда для отката миграции.
 var downCmd = &cobra.Command{
 	Use:   "down",
@@ -18,14 +16,16 @@ var downCmd = &cobra.Command{
 		return cmd.Parent().PersistentPreRunE(cmd.Parent(), args)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		const errDownPrefix = "откат миграции: "
+
 		m, err := gomigrator.New(logg, migrateDir, &dbParam)
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrDownPrefix, err)
+			return fmt.Errorf("%s%w", errDownPrefix, err)
 		}
 
 		err = m.Down()
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrDownPrefix, err)
+			return fmt.Errorf("%s%w", errDownPrefix, err)
 		}
 
 		return nil

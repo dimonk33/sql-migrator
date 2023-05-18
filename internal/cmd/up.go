@@ -7,8 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const ErrUpPrefix = "применение миграций: "
-
 // upCmd команда для применения транзакций.
 var upCmd = &cobra.Command{
 	Use:   "up",
@@ -18,14 +16,16 @@ var upCmd = &cobra.Command{
 		return cmd.Parent().PersistentPreRunE(cmd.Parent(), args)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		const errUpPrefix = "применение миграций: "
+
 		m, err := gomigrator.New(logg, migrateDir, &dbParam)
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrUpPrefix, err)
+			return fmt.Errorf("%s%w", errUpPrefix, err)
 		}
 
 		err = m.Up()
 		if err != nil {
-			return fmt.Errorf("%s%w", ErrUpPrefix, err)
+			return fmt.Errorf("%s%w", errUpPrefix, err)
 		}
 
 		return nil

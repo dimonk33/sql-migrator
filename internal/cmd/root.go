@@ -20,7 +20,7 @@ const (
 	// Путь до миграций по умолчанию.
 	defaultMigrateType = "sql"
 
-	// Путь до миграций по умолчанию.
+	// Уровень логирования по умолчанию
 	defaultLoggerLevel = logger.LevelError
 
 	// Путь до файла конфигурации.

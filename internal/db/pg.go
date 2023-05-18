@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // Инициализация драйвера Postgresql
 )
 
 const (
@@ -18,7 +18,13 @@ const (
 )
 
 type Pg struct {
-	conn *sqlx.DB
+	conn   *sqlx.DB
+	logger Logger
+}
+
+type Logger interface {
+	Error(v ...any)
+	Warning(v ...any)
 }
 
 type ConnParam struct {
@@ -35,7 +41,7 @@ type MigrateInfo struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-func NewPgMigrator(ctx context.Context, dbConn *ConnParam) (*Pg, error) {
+func NewPgMigrator(ctx context.Context, dbConn *ConnParam, l Logger) (*Pg, error) {
 	connStr := fmt.Sprintf(
 		"host=%s port=%s dbname=%s user=%s password='%s' sslmode=%s",
 		dbConn.Host,
@@ -50,7 +56,8 @@ func NewPgMigrator(ctx context.Context, dbConn *ConnParam) (*Pg, error) {
 		return nil, err
 	}
 	b := &Pg{
-		conn: c,
+		conn:   c,
+		logger: l,
 	}
 	err = b.initTable(ctx)
 	if err != nil {
@@ -61,6 +68,8 @@ func NewPgMigrator(ctx context.Context, dbConn *ConnParam) (*Pg, error) {
 }
 
 func (b *Pg) initTable(ctx context.Context) error {
+	const logInitPrefix = "создание служебных таблиц: "
+
 	var (
 		tx  *sql.Tx
 		err error
@@ -80,6 +89,7 @@ func (b *Pg) initTable(ctx context.Context) error {
 			END
 			$$;`)
 	if err != nil {
+		b.txRollback(tx, logInitPrefix)
 		return err
 	}
 
@@ -93,6 +103,7 @@ func (b *Pg) initTable(ctx context.Context) error {
 			)`,
 	)
 	if err != nil {
+		b.txRollback(tx, logInitPrefix)
 		return err
 	}
 
@@ -100,6 +111,7 @@ func (b *Pg) initTable(ctx context.Context) error {
 		"CREATE UNIQUE INDEX IF NOT EXISTS name_uniq_idx ON "+serviceTableName+"(name);",
 	)
 	if err != nil {
+		b.txRollback(tx, logInitPrefix)
 		return err
 	}
 
@@ -119,6 +131,8 @@ func (b *Pg) Lock(ctx context.Context, sign string) bool {
 
 	err := b.conn.GetContext(ctx, &lock, sqlReq)
 	if err != nil {
+		b.logger.Error("блокировка базы:", err)
+		b.Unlock(ctx, sign)
 		return false
 	}
 	return lock
@@ -132,6 +146,7 @@ func (b *Pg) Unlock(ctx context.Context, sign string) bool {
 
 	err := b.conn.GetContext(ctx, &lock, sqlReq)
 	if err != nil {
+		b.logger.Error("разблокировка базы:", err)
 		return false
 	}
 	return lock
@@ -171,19 +186,24 @@ func (b *Pg) FindAllApplied(ctx context.Context) ([]MigrateInfo, error) {
 }
 
 func (b *Pg) ApplyTx(ctx context.Context, name string, sqlPool []string) error {
+	const logPrefixApplyMigration = "применение миграции:"
+
 	if err := b.Create(ctx, name); err != nil {
 		return fmt.Errorf("создание записи в базе: %w", err)
 	}
 
 	tx, err := b.conn.BeginTx(ctx, nil)
 	if err != nil {
+		b.txRollback(tx, logPrefixApplyMigration)
+		b.deleteMigrate(ctx, name, logPrefixApplyMigration)
 		return err
 	}
 
 	for i, s := range sqlPool {
 		_, err = tx.ExecContext(ctx, s)
 		if err != nil {
-			_ = b.Delete(ctx, name)
+			b.txRollback(tx, logPrefixApplyMigration)
+			b.deleteMigrate(ctx, name, logPrefixApplyMigration)
 			return fmt.Errorf("выполнение запроса %d: %w", i, err)
 		}
 	}
@@ -191,23 +211,51 @@ func (b *Pg) ApplyTx(ctx context.Context, name string, sqlPool []string) error {
 	s := "UPDATE " + serviceTableName + " SET status = $2 WHERE name = $1"
 	_, err = tx.ExecContext(ctx, s, name, statusApplied)
 	if err != nil {
-		_ = tx.Rollback()
-		_ = b.Delete(ctx, name)
+		b.txRollback(tx, logPrefixApplyMigration)
+		b.deleteMigrate(ctx, name, logPrefixApplyMigration)
 		return fmt.Errorf("изменение статуса миграции: %w", err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		_ = tx.Rollback()
-		_ = b.Delete(ctx, name)
+		b.txRollback(tx, logPrefixApplyMigration)
+		b.deleteMigrate(ctx, name, logPrefixApplyMigration)
 		return fmt.Errorf("ошибка закрытия транзакции: %w", err)
 	}
 
 	return nil
 }
 
-//nolint:all
 func (b *Pg) RevertTx(ctx context.Context, name string, sqlPool []string) error {
+	const logPrefixRevertMigration = "откат миграции:"
+
+	tx, err := b.conn.BeginTx(ctx, nil)
+	if err != nil {
+		b.txRollback(tx, logPrefixRevertMigration)
+		return err
+	}
+
+	for i, s := range sqlPool {
+		_, err = tx.ExecContext(ctx, s)
+		if err != nil {
+			b.txRollback(tx, logPrefixRevertMigration)
+			return fmt.Errorf("выполнение запроса %d: %w", i, err)
+		}
+	}
+
+	s := "DELETE FROM " + serviceTableName + " WHERE name = $1"
+	_, err = tx.ExecContext(ctx, s, name)
+	if err != nil {
+		b.txRollback(tx, logPrefixRevertMigration)
+		return fmt.Errorf("удаление миграции: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		b.txRollback(tx, logPrefixRevertMigration)
+		return fmt.Errorf("ошибка закрытия транзакции: %w", err)
+	}
+
 	return nil
 }
 
@@ -232,4 +280,16 @@ func (b *Pg) Delete(ctx context.Context, name string) error {
 	sqlReq := "DELETE FROM " + serviceTableName + " WHERE name = $1"
 	_, err := b.conn.ExecContext(ctx, sqlReq, name)
 	return err
+}
+
+func (b *Pg) txRollback(tx *sql.Tx, logPrefix string) {
+	if err := tx.Rollback(); err != nil {
+		b.logger.Error(logPrefix, err)
+	}
+}
+
+func (b *Pg) deleteMigrate(ctx context.Context, name string, logPrefix string) {
+	if err := b.Delete(ctx, name); err != nil {
+		b.logger.Error(logPrefix, err)
+	}
 }
