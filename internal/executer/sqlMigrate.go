@@ -35,7 +35,7 @@ var (
 	ErrNoData          = errors.New("запросы не найдены")
 )
 
-func NewSqlMigrate(db DB) *SQLMigrate {
+func NewSQLMigrate(db DB) *SQLMigrate {
 	return &SQLMigrate{
 		db: db,
 	}
@@ -47,7 +47,7 @@ func (sm *SQLMigrate) UpExec(ctx context.Context, path string) error {
 		return fmt.Errorf("ошибка парсинга файла: %w", err)
 	}
 
-	sqls := sm.extractSqlRequest(text)
+	sqls := sm.extractSQLRequest(text)
 	if len(sqls) == 0 {
 		return ErrNoData
 	}
@@ -91,15 +91,11 @@ func (sm *SQLMigrate) parseFile(path string, dir int) (string, error) {
 	return "", ErrWrongDirection
 }
 
-func (sm *SQLMigrate) extractSqlRequest(text string) []string {
+func (sm *SQLMigrate) extractSQLRequest(text string) []string {
 	t1 := strings.Trim(strings.ReplaceAll(strings.ReplaceAll(
 		text, "\r", "",
 	), "\n", ""),
 		" \t\r\n")
 	sql := strings.Split(t1, ";")
 	return sql
-}
-
-func (sm *SQLMigrate) execSqlRequest(sql []string) error {
-	return nil
 }

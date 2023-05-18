@@ -131,7 +131,7 @@ func (m *Migrator) Up() error {
 		ext := strings.Trim(filepath.Ext(f), ".")
 		switch ext {
 		case migfile.SQLFile:
-			mExecuter = executer.NewSqlMigrate(m.db)
+			mExecuter = executer.NewSQLMigrate(m.db)
 		case migfile.GoFile:
 			mExecuter = executer.NewGoMigrate(m.db)
 		}
