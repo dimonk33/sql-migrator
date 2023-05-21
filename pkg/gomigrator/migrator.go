@@ -65,17 +65,41 @@ func New(l Logger, dir string, dbConn *migdb.ConnParam) (*Migrator, error) {
 	return m, nil
 }
 
-func (m *Migrator) Status() error {
+func (m *Migrator) Status() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	list, err := m.db.FindAllApplied(ctx)
 	if err != nil {
-		return err
+		return "", err
 	}
+	builder := strings.Builder{}
+	builder.WriteString(`
+Идентификатор миграции                  дата применения
+-------------------------------------------------------------------------------
+`)
 	for _, item := range list {
-		fmt.Printf("%s - %s\n", item.Name, item.UpdatedAt)
+		builder.WriteString(fmt.Sprintf(
+			"%s - %s\n",
+			item.Name,
+			item.UpdatedAt.Format("02/01/2006 15:04:05"),
+		))
 	}
-	return nil
+
+	return builder.String(), nil
+}
+
+func (m *Migrator) Version() (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	v, err := m.db.FindLast(ctx)
+	if err != nil {
+		return "", err
+	}
+	builder := strings.Builder{}
+	builder.WriteString("Версия базы данных: ")
+	builder.WriteString(v)
+
+	return builder.String(), nil
 }
 
 func (m *Migrator) Create(migrateName string, migrateType string) error {

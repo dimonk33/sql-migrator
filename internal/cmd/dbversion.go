@@ -8,25 +8,25 @@ import (
 )
 
 // statusCmd состояние миграций.
-var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Статус применения миграций",
+var versionCmd = &cobra.Command{
+	Use:   "dbversion",
+	Short: "Версия базы данных",
 	Args:  cobra.MinimumNArgs(0),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Parent().PersistentPreRunE(cmd.Parent(), args)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		const errStatusPrefix = "статус: "
+		const errVersionPrefix = "версия: "
 
 		m, err := gomigrator.New(logg, migrateDir, &dbParam)
 		if err != nil {
-			return fmt.Errorf("%s%w", errStatusPrefix, err)
+			return fmt.Errorf("%s%w", errVersionPrefix, err)
 		}
 
 		var output string
 
-		if output, err = m.Status(); err != nil {
-			return fmt.Errorf("%s%w", errStatusPrefix, err)
+		if output, err = m.Version(); err != nil {
+			return fmt.Errorf("%s%w", errVersionPrefix, err)
 		}
 
 		fmt.Print(output)
@@ -36,5 +36,5 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(versionCmd)
 }

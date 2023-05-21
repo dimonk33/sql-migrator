@@ -94,7 +94,7 @@ func initializeConfig(cmd *cobra.Command) error {
 	return nil
 }
 
-// Связывание флагов cobra с настройками из viper
+// Связывание флагов cobra с настройками из viper.
 func bindFlags(cmd *cobra.Command, v *viper.Viper) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		configName := f.Name
