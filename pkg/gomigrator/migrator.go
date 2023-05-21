@@ -31,6 +31,8 @@ type Logger interface {
 type DB interface {
 	executer.DBSQL
 	executer.DBGo
+	Lock(ctx context.Context, sign string) bool
+	Unlock(ctx context.Context, sign string) bool
 	Find(ctx context.Context, name string) (int, error)
 	FindLast(ctx context.Context) (string, error)
 	FindAllApplied(ctx context.Context) ([]migdb.MigrateInfo, error)
@@ -153,6 +155,13 @@ func (m *Migrator) Up() error {
 	var mExecuter MigrateExec
 	for _, f := range flist {
 		m.logger.Info("Применение миграции", f)
+
+		dbSign := filepath.Base(f)
+		if !m.db.Lock(ctx, dbSign) {
+			m.logger.Warning("Миграция", dbSign, "заблокирована")
+			continue
+		}
+
 		ext := strings.Trim(filepath.Ext(f), ".")
 
 		switch ext {
@@ -164,8 +173,15 @@ func (m *Migrator) Up() error {
 
 		err = mExecuter.UpExec(ctx, f)
 		if err != nil {
-			m.logger.Error("Миграция", f, "ошибка:", err)
+			if !m.db.Unlock(ctx, dbSign) {
+				m.logger.Error("ошибка разблокировки миграции ", dbSign)
+			}
+
 			return fmt.Errorf("ошибка применения миграции %s: %w", f, err)
+		}
+
+		if !m.db.Unlock(ctx, dbSign) {
+			m.logger.Error("ошибка разблокировки миграции ", dbSign)
 		}
 
 		m.logger.Info("Миграция", f, "применена")
@@ -183,6 +199,16 @@ func (m *Migrator) Down() error {
 		return err
 	}
 
+	if !m.db.Lock(ctx, lastMigrationName) {
+		return fmt.Errorf("миграция %s заблокирована", lastMigrationName)
+	}
+
+	defer func() {
+		if !m.db.Unlock(ctx, lastMigrationName) {
+			m.logger.Error("ошибка разблокировки миграции ", lastMigrationName)
+		}
+	}()
+
 	var mExecuter MigrateExec
 
 	m.logger.Info("Откат миграции", lastMigrationName)
@@ -197,7 +223,6 @@ func (m *Migrator) Down() error {
 
 	err = mExecuter.DownExec(ctx, lastMigrationPath)
 	if err != nil {
-		m.logger.Error("Миграция", lastMigrationName, "ошибка:", err)
 		return fmt.Errorf("ошибка отмены миграции %s: %w", lastMigrationName, err)
 	}
 
@@ -215,6 +240,16 @@ func (m *Migrator) Redo() error {
 		return err
 	}
 
+	if !m.db.Lock(ctx, lastMigrationName) {
+		return fmt.Errorf("миграция %s заблокирована", lastMigrationName)
+	}
+
+	defer func() {
+		if !m.db.Unlock(ctx, lastMigrationName) {
+			m.logger.Error("ошибка разблокировки миграции ", lastMigrationName)
+		}
+	}()
+
 	var mExecuter MigrateExec
 
 	m.logger.Info("Откат миграции", lastMigrationName)
@@ -229,13 +264,11 @@ func (m *Migrator) Redo() error {
 
 	err = mExecuter.DownExec(ctx, lastMigrationPath)
 	if err != nil {
-		m.logger.Error("Миграция", lastMigrationName, "ошибка:", err)
 		return fmt.Errorf("ошибка отмены миграции %s: %w", lastMigrationName, err)
 	}
 
 	err = mExecuter.UpExec(ctx, lastMigrationPath)
 	if err != nil {
-		m.logger.Error("Миграция", lastMigrationName, "ошибка:", err)
 		return fmt.Errorf("ошибка применения миграции %s: %w", lastMigrationName, err)
 	}
 
