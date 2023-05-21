@@ -18,8 +18,9 @@ const (
 )
 
 type Pg struct {
-	conn   *sqlx.DB
-	logger Logger
+	connStr string
+	conn    *sqlx.DB
+	logger  Logger
 }
 
 type Logger interface {
@@ -56,8 +57,9 @@ func NewPgMigrator(ctx context.Context, dbConn *ConnParam, l Logger) (*Pg, error
 		return nil, err
 	}
 	b := &Pg{
-		conn:   c,
-		logger: l,
+		conn:    c,
+		logger:  l,
+		connStr: connStr,
 	}
 	err = b.initTable(ctx)
 	if err != nil {
@@ -121,6 +123,10 @@ func (b *Pg) initTable(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (b *Pg) GetConnString() string {
+	return b.connStr
 }
 
 func (b *Pg) Lock(ctx context.Context, sign string) bool {

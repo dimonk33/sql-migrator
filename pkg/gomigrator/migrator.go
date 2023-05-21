@@ -29,7 +29,8 @@ type Logger interface {
 }
 
 type DB interface {
-	executer.DB
+	executer.DBSQL
+	executer.DBGo
 	Find(ctx context.Context, name string) (int, error)
 	FindLast(ctx context.Context) (string, error)
 	FindAllApplied(ctx context.Context) ([]migdb.MigrateInfo, error)
@@ -134,7 +135,7 @@ func (m *Migrator) Up() error {
 		case migfile.SQLFile:
 			mExecuter = executer.NewSQLMigrate(m.db)
 		case migfile.GoFile:
-			mExecuter = executer.NewGoMigrate(m.db)
+			mExecuter = executer.NewGoMigrate(m.db, m.logger)
 		}
 
 		err = mExecuter.UpExec(ctx, f)
@@ -150,23 +151,12 @@ func (m *Migrator) Up() error {
 }
 
 func (m *Migrator) Down() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute /*Second*/)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	flist, err := m.finder.ScanDir(ctx, m.dirPath)
+	lastMigrationName, lastMigrationPath, err := m.getLastMigration(ctx)
 	if err != nil {
-		return fmt.Errorf("ошибка поиска миграций в каталоге: %w", err)
-	}
-	m.logger.Info("Cписок миграций:\n", flist)
-
-	lastMigrationName, err := m.db.FindLast(ctx)
-	if err != nil {
-		return fmt.Errorf("ошибка получения последней миграции из базы: %w", err)
-	}
-
-	_, ok := flist[lastMigrationName]
-	if !ok {
-		return fmt.Errorf("миграция %s отсутствует на диске", lastMigrationName)
+		return err
 	}
 
 	var mExecuter MigrateExec
@@ -178,10 +168,10 @@ func (m *Migrator) Down() error {
 	case migfile.SQLFile:
 		mExecuter = executer.NewSQLMigrate(m.db)
 	case migfile.GoFile:
-		mExecuter = executer.NewGoMigrate(m.db)
+		mExecuter = executer.NewGoMigrate(m.db, m.logger)
 	}
 
-	err = mExecuter.DownExec(ctx, flist[lastMigrationName])
+	err = mExecuter.DownExec(ctx, lastMigrationPath)
 	if err != nil {
 		m.logger.Error("Миграция", lastMigrationName, "ошибка:", err)
 		return fmt.Errorf("ошибка отмены миграции %s: %w", lastMigrationName, err)
@@ -193,5 +183,60 @@ func (m *Migrator) Down() error {
 }
 
 func (m *Migrator) Redo() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute /*Second*/)
+	defer cancel()
+
+	lastMigrationName, lastMigrationPath, err := m.getLastMigration(ctx)
+	if err != nil {
+		return err
+	}
+
+	var mExecuter MigrateExec
+
+	m.logger.Info("Откат миграции", lastMigrationName)
+	ext := strings.Trim(filepath.Ext(lastMigrationName), ".")
+
+	switch ext {
+	case migfile.SQLFile:
+		mExecuter = executer.NewSQLMigrate(m.db)
+	case migfile.GoFile:
+		mExecuter = executer.NewGoMigrate(m.db, m.logger)
+	}
+
+	err = mExecuter.DownExec(ctx, lastMigrationPath)
+	if err != nil {
+		m.logger.Error("Миграция", lastMigrationName, "ошибка:", err)
+		return fmt.Errorf("ошибка отмены миграции %s: %w", lastMigrationName, err)
+	}
+
+	err = mExecuter.UpExec(ctx, lastMigrationPath)
+	if err != nil {
+		m.logger.Error("Миграция", lastMigrationName, "ошибка:", err)
+		return fmt.Errorf("ошибка применения миграции %s: %w", lastMigrationName, err)
+	}
+
+	m.logger.Info("Миграция", lastMigrationName, "применена повторно")
+
 	return nil
+}
+
+func (m *Migrator) getLastMigration(ctx context.Context) (string, string, error) {
+	flist, err := m.finder.ScanDir(ctx, m.dirPath)
+	if err != nil {
+		return "", "", fmt.Errorf("ошибка поиска миграций в каталоге: %w", err)
+	}
+	m.logger.Info("Cписок миграций:\n", flist)
+
+	var lastMigrationName string
+
+	if lastMigrationName, err = m.db.FindLast(ctx); err != nil {
+		return "", "", fmt.Errorf("ошибка получения последней миграции из базы: %w", err)
+	}
+
+	path, ok := flist[lastMigrationName]
+	if !ok {
+		return "", "", fmt.Errorf("миграция %s отсутствует на диске", lastMigrationName)
+	}
+
+	return lastMigrationName, path, nil
 }

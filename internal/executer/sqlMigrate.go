@@ -17,16 +17,12 @@ const (
 )
 
 type SQLMigrate struct {
-	db DB
+	db DBSQL
 }
 
-type DB interface {
+type DBSQL interface {
 	ApplyTx(ctx context.Context, name string, sqlPool []string) error
 	RevertTx(ctx context.Context, name string, sqlPool []string) error
-	Create(ctx context.Context, name string) error
-	Exec(ctx context.Context, sql string) error
-	SetApplied(ctx context.Context, name string) error
-	Delete(ctx context.Context, name string) error
 }
 
 var (
@@ -35,7 +31,7 @@ var (
 	ErrNoData          = errors.New("запросы не найдены")
 )
 
-func NewSQLMigrate(db DB) *SQLMigrate {
+func NewSQLMigrate(db DBSQL) *SQLMigrate {
 	return &SQLMigrate{
 		db: db,
 	}
@@ -87,8 +83,9 @@ func (sm *SQLMigrate) parseFile(path string, dir int) (string, error) {
 		return "", fmt.Errorf("ошибка открытия файла: %w", err)
 	}
 
-	upStartIndex := strings.Index(string(fileContent), migfile.SQLUpPartID) + len(migfile.SQLUpPartID)
-	upEndIndex := strings.Index(string(fileContent), migfile.SQLDownPartID)
+	fileStr := string(fileContent)
+	upStartIndex := strings.Index(fileStr, migfile.SQLUpPartID) + len(migfile.SQLUpPartID)
+	upEndIndex := strings.Index(fileStr, migfile.SQLDownPartID)
 	downStartIndex := upEndIndex + len(migfile.SQLDownPartID)
 	downEndIndex := len(fileContent) - 1
 
@@ -98,9 +95,9 @@ func (sm *SQLMigrate) parseFile(path string, dir int) (string, error) {
 
 	switch dir {
 	case UpDirection:
-		return string(fileContent)[upStartIndex:upEndIndex], nil
+		return fileStr[upStartIndex:upEndIndex], nil
 	case DownDirection:
-		return string(fileContent)[downStartIndex:downEndIndex], nil
+		return fileStr[downStartIndex:downEndIndex], nil
 	}
 
 	return "", ErrWrongDirection
