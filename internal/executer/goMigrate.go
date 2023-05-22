@@ -143,7 +143,7 @@ func (sm *GoMigrate) genMainFile(
 
 func (sm *GoMigrate) execMigration(srcDirPath string) error {
 	t := migfile.NewTemplate(sm.logger, srcDirPath)
-	runFilePath, err := t.CreateRunSh(srcDirPath)
+	runFilePath, err := t.CreateRunSh()
 	if err != nil {
 		return fmt.Errorf("генерация run файла: %w", err)
 	}

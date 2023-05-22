@@ -221,7 +221,7 @@ func (t *Template) CreateGoMain(content string, callFuncName string, dbConn stri
 	return fname, nil
 }
 
-func (t *Template) CreateRunSh(srcDir string) (string, error) {
+func (t *Template) CreateRunSh() (string, error) {
 	_, err := os.Stat(t.tmplDirPath)
 	if err != nil {
 		return "", fmt.Errorf("ошибка наличия каталога: %w", err)
@@ -253,7 +253,7 @@ func (t *Template) CreateRunSh(srcDir string) (string, error) {
 	}()
 
 	tv := shTmplVars{
-		SrcDir: srcDir,
+		SrcDir: t.tmplDirPath,
 	}
 
 	err = tmpl.Execute(t.f, tv)
