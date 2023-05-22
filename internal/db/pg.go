@@ -15,6 +15,8 @@ const (
 	enumTableName    = "gomigrate_enum"
 	statusProcessing = "processing"
 	statusApplied    = "applied"
+
+	logPrefixApplyMigration = "применение миграции:"
 )
 
 type Pg struct {
@@ -192,8 +194,6 @@ func (b *Pg) FindAllApplied(ctx context.Context) ([]MigrateInfo, error) {
 }
 
 func (b *Pg) ApplyTx(ctx context.Context, name string, sqlPool []string) error {
-	const logPrefixApplyMigration = "применение миграции:"
-
 	if err := b.Create(ctx, name); err != nil {
 		return fmt.Errorf("создание записи в базе: %w", err)
 	}
@@ -201,7 +201,7 @@ func (b *Pg) ApplyTx(ctx context.Context, name string, sqlPool []string) error {
 	tx, err := b.conn.BeginTx(ctx, nil)
 	if err != nil {
 		b.txRollback(tx, logPrefixApplyMigration)
-		b.deleteMigrate(ctx, name, logPrefixApplyMigration)
+		b.deleteMigrate(ctx, name)
 		return err
 	}
 
@@ -209,7 +209,7 @@ func (b *Pg) ApplyTx(ctx context.Context, name string, sqlPool []string) error {
 		_, err = tx.ExecContext(ctx, s)
 		if err != nil {
 			b.txRollback(tx, logPrefixApplyMigration)
-			b.deleteMigrate(ctx, name, logPrefixApplyMigration)
+			b.deleteMigrate(ctx, name)
 			return fmt.Errorf("выполнение запроса %d: %w", i, err)
 		}
 	}
@@ -218,14 +218,14 @@ func (b *Pg) ApplyTx(ctx context.Context, name string, sqlPool []string) error {
 	_, err = tx.ExecContext(ctx, s, name, statusApplied)
 	if err != nil {
 		b.txRollback(tx, logPrefixApplyMigration)
-		b.deleteMigrate(ctx, name, logPrefixApplyMigration)
+		b.deleteMigrate(ctx, name)
 		return fmt.Errorf("изменение статуса миграции: %w", err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		b.txRollback(tx, logPrefixApplyMigration)
-		b.deleteMigrate(ctx, name, logPrefixApplyMigration)
+		b.deleteMigrate(ctx, name)
 		return fmt.Errorf("ошибка закрытия транзакции: %w", err)
 	}
 
@@ -294,8 +294,8 @@ func (b *Pg) txRollback(tx *sql.Tx, logPrefix string) {
 	}
 }
 
-func (b *Pg) deleteMigrate(ctx context.Context, name string, logPrefix string) {
+func (b *Pg) deleteMigrate(ctx context.Context, name string) {
 	if err := b.Delete(ctx, name); err != nil {
-		b.logger.Error(logPrefix, err)
+		b.logger.Error(logPrefixApplyMigration, err)
 	}
 }
