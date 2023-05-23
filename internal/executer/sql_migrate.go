@@ -87,7 +87,7 @@ func (sm *SQLMigrate) parseFile(path string, dir int) (string, error) {
 	upStartIndex := strings.Index(fileStr, migfile.SQLUpPartID) + len(migfile.SQLUpPartID)
 	upEndIndex := strings.Index(fileStr, migfile.SQLDownPartID)
 	downStartIndex := upEndIndex + len(migfile.SQLDownPartID)
-	downEndIndex := len(fileContent) - 1
+	downEndIndex := len(fileContent)
 
 	if upStartIndex < len(migfile.SQLUpPartID) || upEndIndex < upStartIndex {
 		return "", ErrWrongFileFormat
