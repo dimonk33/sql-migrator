@@ -43,8 +43,10 @@ func TestFinder_ScanDir(t *testing.T) {
 				path: absTestDataPath,
 			},
 			want: map[string]string{
-				"20230516001312_test_migration.sql": filepath.Join(absTestDataPath, "20230516001312_test_migration.sql"),
-				"20230518235931_test_migration.go":  filepath.Join(absTestDataPath, "20230518235931_test_migration.go"),
+				"111111_sql_migration.sql":     filepath.Join(absTestDataPath, "111111_sql_migration.sql"),
+				"222222_go_migration.go":       filepath.Join(absTestDataPath, "222222_go_migration.go"),
+				"444444_bad_go_migration.go":   filepath.Join(absTestDataPath, "444444_bad_go_migration.go"),
+				"555555_bad_sql_migration.sql": filepath.Join(absTestDataPath, "555555_bad_sql_migration.sql"),
 			},
 			wantErr: false,
 		},
@@ -80,7 +82,7 @@ func TestFinder_validateEntry(t *testing.T) {
 
 	dir, err = os.ReadDir(filepath.Join(srcPath, testDataPath))
 	require.NoError(t, err)
-	require.Equal(t, 3, len(dir))
+	require.Equal(t, 5, len(dir))
 
 	var testFileID [3]int
 	for i, e := range dir {
