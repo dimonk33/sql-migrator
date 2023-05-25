@@ -252,6 +252,11 @@ func (t *Template) CreateRunSh() (string, error) {
 		}
 	}()
 
+	err = t.f.Chmod(os.ModePerm)
+	if err != nil {
+		return "", fmt.Errorf("ошибка смены прав доступа файла: %w", err)
+	}
+
 	tv := shTmplVars{
 		SrcDir: t.tmplDirPath,
 	}

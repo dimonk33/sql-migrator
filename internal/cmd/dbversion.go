@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dimonk33/sql-migrator/pkg/gomigrator"
 	"github.com/spf13/cobra"
@@ -23,13 +24,17 @@ var versionCmd = &cobra.Command{
 			return fmt.Errorf("%s%w", errVersionPrefix, err)
 		}
 
-		var output string
+		var v string
 
-		if output, err = m.Version(); err != nil {
+		if v, err = m.Version(); err != nil {
 			return fmt.Errorf("%s%w", errVersionPrefix, err)
 		}
 
-		fmt.Print(output)
+		builder := strings.Builder{}
+		builder.WriteString("Версия базы данных: ")
+		builder.WriteString(v)
+
+		fmt.Print(builder.String())
 
 		return nil
 	},

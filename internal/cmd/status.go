@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dimonk33/sql-migrator/pkg/gomigrator"
 	"github.com/spf13/cobra"
@@ -23,13 +24,26 @@ var statusCmd = &cobra.Command{
 			return fmt.Errorf("%s%w", errStatusPrefix, err)
 		}
 
-		var output string
+		var list []gomigrator.MigrateStatus
 
-		if output, err = m.Status(); err != nil {
+		if list, err = m.Status(); err != nil {
 			return fmt.Errorf("%s%w", errStatusPrefix, err)
 		}
 
-		fmt.Print(output)
+		builder := strings.Builder{}
+		builder.WriteString(`
+Идентификатор миграции                  дата применения
+-------------------------------------------------------------------------------
+`)
+		for _, item := range list {
+			builder.WriteString(fmt.Sprintf(
+				"%s - %s\n",
+				item.Name,
+				item.UpdatedAt.Format("02/01/2006 15:04:05"),
+			))
+		}
+
+		fmt.Print(builder.String())
 
 		return nil
 	},

@@ -13,4 +13,4 @@ COPY ./cmd ./cmd
 COPY ./internal ./internal
 COPY ./pkg ./pkg
 COPY ./tests/integration .
-COPY ./tests/testdata ./testdata
+COPY ./tests/migrations ./migrations

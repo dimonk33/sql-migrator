@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testDataPath = "../../tests/testdata"
+	testDataPath = "../../testdata"
 )
 
 func TestFinder_ScanDir(t *testing.T) {

@@ -18,7 +18,7 @@ services:
       - DB_PASSWORD=migrator
       - DB_NAME=migrator
       - DB_SSL=disable
-      - TESTDATA_PATH=./testdata
+      - TESTDATA_PATH=./migrations
     depends_on:
       db:
         condition: service_healthy

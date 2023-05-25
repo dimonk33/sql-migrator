@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,16 +15,14 @@ import (
 	migfile "github.com/dimonk33/sql-migrator/internal/file"
 )
 
-type MigrateType = string
-
 const (
 	SQLMigration MigrateType = "sql"
 	GoMigration  MigrateType = "go"
+
+	opTimeout = 60 * time.Minute
 )
 
-// func (mt MigrateType) String() string {
-// 	return string(mt)
-// }
+type MigrateType = string
 
 func Validate(mt MigrateType) error {
 	if mt != SQLMigration && mt != GoMigration {
@@ -40,14 +39,9 @@ type Migrator struct {
 	finder  *migfile.Finder
 }
 
-type DBConnParam struct {
-	Host     string
-	Port     string
-	Name     string
-	User     string
-	Password string
-	SSL      string
-}
+type DBConnParam = migdb.ConnParam
+
+type MigrateStatus = migdb.MigrateInfo
 
 type Logger interface {
 	Info(v ...any)
@@ -79,19 +73,10 @@ func New(l Logger, dir string, dbConn *DBConnParam) (*Migrator, error) {
 		dirPath: dir,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
 
-	migdbConn := migdb.ConnParam{
-		Host:     dbConn.Host,
-		Port:     dbConn.Port,
-		Name:     dbConn.Name,
-		User:     dbConn.User,
-		Password: dbConn.Password,
-		SSL:      dbConn.SSL,
-	}
-
-	db, err := migdb.NewPgMigrator(ctx, &migdbConn, l)
+	db, err := migdb.NewPgMigrator(ctx, dbConn, l)
 	if err != nil {
 		return nil, err
 	}
@@ -105,41 +90,27 @@ func New(l Logger, dir string, dbConn *DBConnParam) (*Migrator, error) {
 	return m, nil
 }
 
-func (m *Migrator) Status() (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (m *Migrator) Status() ([]MigrateStatus, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
+
 	list, err := m.db.FindAllApplied(ctx)
 	if err != nil {
-		return "", err
-	}
-	builder := strings.Builder{}
-	builder.WriteString(`
-Идентификатор миграции                  дата применения
--------------------------------------------------------------------------------
-`)
-	for _, item := range list {
-		builder.WriteString(fmt.Sprintf(
-			"%s - %s\n",
-			item.Name,
-			item.UpdatedAt.Format("02/01/2006 15:04:05"),
-		))
+		return nil, err
 	}
 
-	return builder.String(), nil
+	return list, nil
 }
 
 func (m *Migrator) Version() (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
 	v, err := m.db.FindLast(ctx)
 	if err != nil {
 		return "", err
 	}
-	builder := strings.Builder{}
-	builder.WriteString("Версия базы данных: ")
-	builder.WriteString(v)
 
-	return builder.String(), nil
+	return v, nil
 }
 
 func (m *Migrator) Create(migrateName string, migrateType MigrateType) (string, error) {
@@ -167,7 +138,7 @@ func (m *Migrator) Create(migrateName string, migrateType MigrateType) (string, 
 }
 
 func (m *Migrator) Up() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
 
 	flist, err := m.finder.ScanDir(ctx, m.dirPath)
@@ -194,9 +165,19 @@ func (m *Migrator) Up() error {
 		return ErrNoMigrations
 	}
 
+	keys := make([]string, 0, len(flist))
+
+	for key := range flist {
+		keys = append(keys, key)
+	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		return flist[keys[i]] < flist[keys[j]]
+	})
+
 	var mExecuter MigrateExec
-	for _, f := range flist {
-		m.logger.Info("Применение миграции", f)
+	for _, k := range keys {
+		f := flist[k]
+		m.logger.Info("Применение миграции", k)
 
 		dbSign := filepath.Base(f)
 		if !m.db.Lock(ctx, dbSign) {
@@ -233,7 +214,7 @@ func (m *Migrator) Up() error {
 }
 
 func (m *Migrator) Down() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
 
 	lastMigrationName, lastMigrationPath, err := m.getLastMigration(ctx)
@@ -274,7 +255,7 @@ func (m *Migrator) Down() error {
 }
 
 func (m *Migrator) Redo() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute /*Second*/)
+	ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 	defer cancel()
 
 	lastMigrationName, lastMigrationPath, err := m.getLastMigration(ctx)
