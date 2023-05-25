@@ -26,8 +26,8 @@ var createCmd = &cobra.Command{
 			return fmt.Errorf("%s%w", errCreatePrefix, err)
 		}
 
-		mt := gomigrator.MigrateType(strings.ToLower(strings.TrimSpace(migrateType)))
-		if err = mt.Validate(); err != nil {
+		mt := strings.ToLower(strings.TrimSpace(migrateType))
+		if err = gomigrator.Validate(mt); err != nil {
 			return fmt.Errorf("%s%w", errCreatePrefix, err)
 		}
 

@@ -14,19 +14,19 @@ import (
 	migfile "github.com/dimonk33/sql-migrator/internal/file"
 )
 
-type MigrateType string
+type MigrateType = string
 
 const (
 	SQLMigration MigrateType = "sql"
 	GoMigration  MigrateType = "go"
 )
 
-func (mt MigrateType) String() string {
-	return string(mt)
-}
+// func (mt MigrateType) String() string {
+// 	return string(mt)
+// }
 
-func (mt MigrateType) Validate() error {
-	if mt.String() != SQLMigration.String() && mt.String() != GoMigration.String() {
+func Validate(mt MigrateType) error {
+	if mt != SQLMigration && mt != GoMigration {
 		return errors.New("неизвестный тип миграции")
 	}
 
@@ -143,12 +143,12 @@ func (m *Migrator) Version() (string, error) {
 }
 
 func (m *Migrator) Create(migrateName string, migrateType MigrateType) (string, error) {
-	if err := migrateType.Validate(); err != nil {
+	if err := Validate(migrateType); err != nil {
 		return "", err
 	}
 
 	if migrateType != migfile.SQLFile && migrateType != migfile.GoFile {
-		return "", errors.New("неверный тип миграции: " + migrateType.String())
+		return "", errors.New("неверный тип миграции: " + migrateType)
 	}
 
 	err := os.MkdirAll(m.dirPath, 0o750)
@@ -159,7 +159,7 @@ func (m *Migrator) Create(migrateName string, migrateType MigrateType) (string, 
 	t := migfile.NewTemplate(m.logger, m.dirPath)
 
 	var fname string
-	if fname, err = t.Create(migrateName, migrateType.String()); err != nil {
+	if fname, err = t.Create(migrateName, migrateType); err != nil {
 		return "", fmt.Errorf("ошибка создания миграции: %w", err)
 	}
 
