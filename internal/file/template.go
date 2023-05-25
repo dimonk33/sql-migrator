@@ -137,18 +137,18 @@ func NewTemplate(logg Logger, dir string) *Template {
 	}
 }
 
-func (t *Template) Create(name string, tType string) error {
+func (t *Template) Create(name string, tType string) (string, error) {
 	fname := time.Now().Format("20060102150405") + "_" + name + "." + tType
 	path := filepath.Join(t.tmplDirPath, fname)
 
 	_, err := os.Stat(path)
 	if !os.IsNotExist(err) {
-		return fmt.Errorf("ошибка создания файла: %w", err)
+		return "", fmt.Errorf("ошибка создания файла: %w", err)
 	}
 
 	t.f, err = os.Create(path)
 	if err != nil {
-		return fmt.Errorf("ошибка создания файла: %w", err)
+		return "", fmt.Errorf("ошибка создания файла: %w", err)
 	}
 
 	defer func() {
@@ -172,10 +172,10 @@ func (t *Template) Create(name string, tType string) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("ошибка генерации шаблона: %w", err)
+		return "", fmt.Errorf("ошибка генерации шаблона: %w", err)
 	}
 
-	return nil
+	return fname, nil
 }
 
 func (t *Template) CreateGoMain(content string, callFuncName string, dbConn string) (string, error) {

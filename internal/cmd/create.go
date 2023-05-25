@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dimonk33/sql-migrator/pkg/gomigrator"
 	"github.com/spf13/cobra"
@@ -25,10 +26,17 @@ var createCmd = &cobra.Command{
 			return fmt.Errorf("%s%w", errCreatePrefix, err)
 		}
 
-		err = m.Create(args[0], migrateType)
-		if err != nil {
+		mt := gomigrator.MigrateType(strings.ToLower(strings.TrimSpace(migrateType)))
+		if err = mt.Validate(); err != nil {
 			return fmt.Errorf("%s%w", errCreatePrefix, err)
 		}
+
+		var fname string
+		if fname, err = m.Create(args[0], mt); err != nil {
+			return fmt.Errorf("%s%w", errCreatePrefix, err)
+		}
+
+		fmt.Printf("Создан файл миграции: %s", fname)
 
 		return nil
 	},

@@ -1,4 +1,4 @@
-package main
+package testdata
 
 import (
 	"database/sql"
@@ -16,6 +16,15 @@ func up(tx *sql.Tx) error {
 			name varchar(255)
 		)
 	`)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func down(tx *sql.Tx) error {
+	_, err := tx.Exec("DROP TABLE " + tableName)
 	if err != nil {
 		return err
 	}

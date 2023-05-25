@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	migdb "github.com/dimonk33/sql-migrator/internal/db"
 	"github.com/dimonk33/sql-migrator/internal/logger"
+	"github.com/dimonk33/sql-migrator/pkg/gomigrator"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -35,7 +35,7 @@ const (
 
 var (
 	migrateDir string
-	dbParam    migdb.ConnParam
+	dbParam    gomigrator.DBConnParam
 	logLevel   string
 	logg       *logger.Logger
 )

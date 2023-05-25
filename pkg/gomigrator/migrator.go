@@ -14,11 +14,39 @@ import (
 	migfile "github.com/dimonk33/sql-migrator/internal/file"
 )
 
+type MigrateType string
+
+const (
+	SQLMigration MigrateType = "sql"
+	GoMigration  MigrateType = "go"
+)
+
+func (mt MigrateType) String() string {
+	return string(mt)
+}
+
+func (mt MigrateType) Validate() error {
+	if mt.String() != SQLMigration.String() && mt.String() != GoMigration.String() {
+		return errors.New("неизвестный тип миграции")
+	}
+
+	return nil
+}
+
 type Migrator struct {
 	logger  Logger
 	dirPath string
 	db      DB
 	finder  *migfile.Finder
+}
+
+type DBConnParam struct {
+	Host     string
+	Port     string
+	Name     string
+	User     string
+	Password string
+	SSL      string
 }
 
 type Logger interface {
@@ -45,7 +73,7 @@ type MigrateExec interface {
 
 var ErrNoMigrations = errors.New("отсутствуют миграции для применения")
 
-func New(l Logger, dir string, dbConn *migdb.ConnParam) (*Migrator, error) {
+func New(l Logger, dir string, dbConn *DBConnParam) (*Migrator, error) {
 	m := &Migrator{
 		logger:  l,
 		dirPath: dir,
@@ -53,7 +81,17 @@ func New(l Logger, dir string, dbConn *migdb.ConnParam) (*Migrator, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	db, err := migdb.NewPgMigrator(ctx, dbConn, l)
+
+	migdbConn := migdb.ConnParam{
+		Host:     dbConn.Host,
+		Port:     dbConn.Port,
+		Name:     dbConn.Name,
+		User:     dbConn.User,
+		Password: dbConn.Password,
+		SSL:      dbConn.SSL,
+	}
+
+	db, err := migdb.NewPgMigrator(ctx, &migdbConn, l)
 	if err != nil {
 		return nil, err
 	}
@@ -104,24 +142,28 @@ func (m *Migrator) Version() (string, error) {
 	return builder.String(), nil
 }
 
-func (m *Migrator) Create(migrateName string, migrateType string) error {
-	migrateType = strings.ToLower(strings.TrimSpace(migrateType))
+func (m *Migrator) Create(migrateName string, migrateType MigrateType) (string, error) {
+	if err := migrateType.Validate(); err != nil {
+		return "", err
+	}
+
 	if migrateType != migfile.SQLFile && migrateType != migfile.GoFile {
-		return errors.New("неверный тип миграции: " + migrateType)
+		return "", errors.New("неверный тип миграции: " + migrateType.String())
 	}
 
 	err := os.MkdirAll(m.dirPath, 0o750)
 	if err != nil {
-		return fmt.Errorf("ошибка создания каталога для миграций: %w", err)
+		return "", fmt.Errorf("ошибка создания каталога для миграций: %w", err)
 	}
 
 	t := migfile.NewTemplate(m.logger, m.dirPath)
-	err = t.Create(migrateName, migrateType)
-	if err != nil {
-		return fmt.Errorf("ошибка создания миграции: %w", err)
+
+	var fname string
+	if fname, err = t.Create(migrateName, migrateType.String()); err != nil {
+		return "", fmt.Errorf("ошибка создания миграции: %w", err)
 	}
 
-	return nil
+	return fname, nil
 }
 
 func (m *Migrator) Up() error {

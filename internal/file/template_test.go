@@ -74,7 +74,7 @@ func TestTemplate_Create(t1 *testing.T) {
 	for _, tt := range tests {
 		t1.Run(tt.name, func(t1 *testing.T) {
 			t := NewTemplate(tt.fields.logger, tt.fields.tmplDirPath)
-			if err := t.Create(tt.args.name, tt.args.tType); (err != nil) != tt.wantErr {
+			if _, err := t.Create(tt.args.name, tt.args.tType); (err != nil) != tt.wantErr {
 				t1.Errorf("Create() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !tt.wantErr {

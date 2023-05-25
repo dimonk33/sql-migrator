@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testDataPath   = "../../testdata"
+	testDataPath   = "../../tests/testdata"
 	testGoodGoFile = "222222_go_migration.go"
 	testBadGoFile  = "444444_bad_go_migration.go"
 )

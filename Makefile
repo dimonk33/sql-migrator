@@ -1,6 +1,6 @@
 .PHONY: build run test lint up down integration-tests
 
-BIN_FILE := "./bin/migrator"
+BIN_FILE := "./bin/gomigrator"
 DOCKER_COMPOSE_PROD="./deployments/docker-compose.yaml"
 DOCKER_COMPOSE_TEST="./deployments/docker-compose.test.yaml"
 
@@ -11,7 +11,7 @@ run: build
 	$(BIN_FILE)
 
 test:
-	go test -race ./internal/...
+	go test -race -count=100 ./internal/...
 
 install-lint-deps:
 	(which golangci-lint > /dev/null) \

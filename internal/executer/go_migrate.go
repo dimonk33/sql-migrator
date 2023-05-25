@@ -143,13 +143,16 @@ func (sm *GoMigrate) genMainFile(
 
 func (sm *GoMigrate) execMigration(srcDirPath string) error {
 	t := migfile.NewTemplate(sm.logger, srcDirPath)
+
 	runFilePath, err := t.CreateRunSh()
 	if err != nil {
 		return fmt.Errorf("генерация run файла: %w", err)
 	}
+
 	cmdOutput := &bytes.Buffer{}
 	cmd := exec.Command(runFilePath)
 	cmd.Stdout = cmdOutput
+
 	err = cmd.Run()
 	if err != nil {
 		_, errO := os.Stderr.WriteString(err.Error())
@@ -157,8 +160,10 @@ func (sm *GoMigrate) execMigration(srcDirPath string) error {
 			sm.logger.Warning(errO)
 		}
 		sm.logger.Error(err)
+
 		return fmt.Errorf("сборка миграции: %w", err)
 	}
+
 	fmt.Print(cmdOutput.String())
 
 	return nil

@@ -1,7 +1,7 @@
 # Собираем в гошке
 FROM golang:1.20 as build
 
-ENV BIN_FILE /opt/migrator/sql-migrator
+ENV BIN_FILE /opt/migrator/gomigrator
 ENV CODE_DIR /go/src/
 
 WORKDIR ${CODE_DIR}
@@ -27,5 +27,5 @@ LABEL ORGANIZATION="OTUS Online Education"
 LABEL SERVICE="migrator"
 LABEL MAINTAINERS="dmitrijj.kuzmin.v@vseinstrumenti.ru"
 
-ENV BIN_FILE /opt/migrator/sql-migrator
+ENV BIN_FILE /opt/migrator/gomigrator
 COPY --from=build ${BIN_FILE} ${BIN_FILE}

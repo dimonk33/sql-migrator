@@ -11,7 +11,8 @@ services:
       context: ../
       dockerfile: build/migrator/Dockerfile
     environment:
-      - DB_HOST=db:5432
+      - DB_HOST=db
+      - DB_PORT=5432
       - DB_USER=migrator
       - DB_PASSWORD=migrator
       - DB_NAME=migrator
