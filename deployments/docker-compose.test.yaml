@@ -8,29 +8,17 @@ services:
   integration_tests:
     container_name: integration_tests
     build:
-      context: ../tests
-      dockerfile: Dockerfile
-    command: "true"
-    links:
-      - migrator
-    environment:
-      DB_HOST: "db:5432"
-    depends_on:
-      - init-kafka
-    networks:
-      - migrator-network
-
-  migrator:
-    container_name: sql-migrator
-    build:
       context: ../
-      dockerfile: build/migrator/Dockerfile
+      dockerfile: tests/Dockerfile
+    command: "true"
     environment:
-      - POSTGRES_HOST=db
-      - POSTGRES_USER=migrator
-      - POSTGRES_PASSWORD=migrator
-      - POSTGRES_DB=migrator
-      - POSTGRES_SSL=disable
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=migrator
+      - DB_PASSWORD=migrator
+      - DB_NAME=migrator
+      - DB_SSL=disable
+      - TESTDATA_PATH=./migrations
     depends_on:
       db:
         condition: service_healthy

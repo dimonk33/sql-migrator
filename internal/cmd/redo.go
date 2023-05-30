@@ -7,25 +7,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// upCmd команда для применения транзакций.
-var upCmd = &cobra.Command{
-	Use:   "up",
-	Short: "Применение миграций",
+// redoCmd повтор последней миграции.
+var redoCmd = &cobra.Command{
+	Use:   "redo",
+	Short: "Повтор последней миграции",
 	Args:  cobra.MinimumNArgs(0),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Parent().PersistentPreRunE(cmd.Parent(), args)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		const errUpPrefix = "применение миграций: "
+		const errRedoPrefix = "повтор миграций: "
 
 		m, err := gomigrator.New(logg, migrateDir, &dbParam)
 		if err != nil {
-			return fmt.Errorf("%s%w", errUpPrefix, err)
+			return fmt.Errorf("%s%w", errRedoPrefix, err)
 		}
 
-		err = m.Up()
+		err = m.Redo()
 		if err != nil {
-			return fmt.Errorf("%s%w", errUpPrefix, err)
+			return fmt.Errorf("%s%w", errRedoPrefix, err)
 		}
 
 		return nil
@@ -33,5 +33,5 @@ var upCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(upCmd)
+	rootCmd.AddCommand(redoCmd)
 }
